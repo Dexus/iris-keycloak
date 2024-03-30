@@ -387,8 +387,10 @@ func Test_Auth_with_custom_claim(t *testing.T) {
 }
 
 func buildContext(t *testing.T, authFunc iris.Handler) *httpexpect.Expect {
-	app := iris.New()
-	app.Logger().SetOutput(os.Stdout)
+	app := iris.Default()
+	app.Logger().SetLevel("info")
+	Logger.SetLevel("info")
+
 	app.Get("/", func(ctx iris.Context) {
 		ctx.StatusCode(200)
 	})
@@ -396,6 +398,7 @@ func buildContext(t *testing.T, authFunc iris.Handler) *httpexpect.Expect {
 	app.Any("/test", authFunc, func(ctx iris.Context) {
 		ctx.StatusCode(200)
 	})
+	app.Build()
 	resp := httptest.New(t, app)
 
 	return resp

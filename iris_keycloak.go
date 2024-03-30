@@ -22,6 +22,8 @@ import (
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
+var Logger = golog.New().SetLevel("debug")
+
 // VarianceTimer controls the max runtime of Auth() and AuthChain() middleware
 var VarianceTimer = 30000 * time.Millisecond
 var publicKeyCache = cache.New(8*time.Hour, 8*time.Hour)
@@ -155,25 +157,25 @@ func decodeToken(token *oauth2.Token, config KeycloakConfig) (*KeyCloakToken, er
 	var err error
 	parsedJWT, err := jwt.ParseSigned(token.AccessToken)
 	if err != nil {
-		golog.Errorf("[iris-OAuth] jwt not decodable: %s", err)
+		Logger.Errorf("[iris-OAuth] jwt not decodable: %s", err)
 		return nil, err
 	}
 	key, err := getPublicKey(parsedJWT.Headers[0].KeyID, config)
 	if err != nil {
-		golog.Errorf("Failed to get publickey %v", err)
+		Logger.Errorf("Failed to get publickey %v", err)
 		return nil, err
 	}
 
 	err = parsedJWT.Claims(key, &keyCloakToken)
 	if err != nil {
-		golog.Errorf("Failed to get claims JWT:%+v", err)
+		Logger.Errorf("Failed to get claims JWT:%+v", err)
 		return nil, err
 	}
 
 	if config.CustomClaimsMapper != nil {
 		err = config.CustomClaimsMapper(parsedJWT, &keyCloakToken)
 		if err != nil {
-			golog.Errorf("Failed to get custom claims JWT:%+v", err)
+			Logger.Errorf("Failed to get custom claims JWT:%+v", err)
 			return nil, err
 		}
 	}
@@ -196,21 +198,21 @@ func getTokenContainer(ctx iris.Context, config KeycloakConfig) (*TokenContainer
 	var err error
 
 	if oauthToken, err = extractToken(ctx.Request()); err != nil {
-		golog.Errorf("[iris-OAuth] Can not extract oauth2.Token, caused by: %s", err)
+		Logger.Errorf("[iris-OAuth] Can not extract oauth2.Token, caused by: %s", err)
 		return nil, false
 	}
 	if !oauthToken.Valid() {
-		golog.Infof("[iris-OAuth] Invalid Token - nil or expired")
+		Logger.Infof("[iris-OAuth] Invalid Token - nil or expired")
 		return nil, false
 	}
 
 	if tc, err = GetTokenContainer(oauthToken, config); err != nil {
-		golog.Errorf("[iris-OAuth] Can not extract TokenContainer, caused by: %s", err)
+		Logger.Errorf("[iris-OAuth] Can not extract TokenContainer, caused by: %s", err)
 		return nil, false
 	}
 
 	if isExpired(tc.KeyCloakToken) {
-		golog.Errorf("[iris-OAuth] Keycloak Token has expired")
+		Logger.Errorf("[iris-OAuth] Keycloak Token has expired")
 		return nil, false
 	}
 
@@ -270,16 +272,16 @@ func authChain(config KeycloakConfig, accessCheckFunctions ...AccessCheckFunctio
 		select {
 		case ok := <-varianceControl:
 			if !ok {
-				golog.Infof("[iris-OAuth] %12v %s access not allowed", time.Since(t), ctx.Request().URL.Path)
+				Logger.Infof("[iris-OAuth] %12v %s access not allowed", time.Since(t), ctx.Request().URL.Path)
 				return
 			}
 		case <-time.After(VarianceTimer):
 			ctx.StopWithError(http.StatusGatewayTimeout, errors.New("Authorization check overtime"))
-			golog.Infof("[iris-OAuth] %12v %s overtime", time.Since(t), ctx.Request().URL.Path)
+			Logger.Infof("[iris-OAuth] %12v %s overtime", time.Since(t), ctx.Request().URL.Path)
 			return
 		}
 
-		golog.Infof("[iris-OAuth] %12v %s access allowed", time.Since(t), ctx.Request().URL.Path)
+		Logger.Infof("[iris-OAuth] %12v %s access allowed", time.Since(t), ctx.Request().URL.Path)
 	}
 }
 
@@ -297,7 +299,7 @@ func RequestLogger(keys []string, contentKey string) iris.Handler {
 						values = append(values, c.Values().GetString(key))
 					}
 				}
-				golog.Infof("[iris-OAuth] Request: %+v for %s", data, strings.Join(values, "-"))
+				Logger.Infof("[iris-OAuth] Request: %+v for %s", data, strings.Join(values, "-"))
 			}
 		}
 	}

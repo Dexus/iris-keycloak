@@ -43,6 +43,9 @@ Assuming you've installed Go and Gin, run this:
 
 ## Usage
 
+### Change Logging Level
+    iriskeycloak.Logger.SetLevel("debug") // default debug
+
 ### Authentication-Based Access
 
 With this function you just check if user is authenticated. Therefore there is no need for AccessTuple unlike next two access types.
