@@ -2,6 +2,7 @@ package iriskeycloak
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
@@ -17,12 +18,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/iris-contrib/httpexpect/v2"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/httptest"
 	"github.com/magiconair/properties/assert"
-	"gopkg.in/square/go-jose.v2"
-	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 const dummyPrivateKey = `-----BEGIN RSA PRIVATE KEY-----
@@ -64,6 +65,8 @@ kwIDAQAB
 -----END PUBLIC KEY-----`
 
 var dummyECKey, _ = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+var dummyEDPubKey, dummyEDPrivKey, _ = ed25519.GenerateKey(rand.Reader)
+var _ = dummyEDPubKey
 
 var builderConfiig BuilderConfig
 
@@ -95,6 +98,7 @@ func TestMain(m *testing.M) {
 
 	setupRSA(token)
 	SetupEC(token)
+	SetupED(token)
 	builderConfiig = BuilderConfig{
 		Service: serviceName,
 		Url:     "",
@@ -122,12 +126,12 @@ func setupRSA(keyCloakToken KeyCloakToken) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	signedTokenRsa, err := jwt.Signed(sigRsa).Claims(&customToken).CompactSerialize()
+	signedTokenRsa, err := jwt.Signed(sigRsa).Claims(&customToken).Serialize()
 	if err != nil {
 		panic(err)
 	}
 
-	raw, _ := jwt.ParseSigned(signedTokenRsa)
+	raw, _ := jwt.ParseSigned(signedTokenRsa, []jose.SignatureAlgorithm{jose.RS256})
 	publicKey := pubKey.(*rsa.PublicKey)
 	be := big.NewInt(int64(publicKey.E))
 	ke := KeyEntry{
@@ -163,11 +167,11 @@ func SetupEC(keyCloakToken KeyCloakToken) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	signedTokenEc, err := jwt.Signed(sigEc).Claims(&customToken).CompactSerialize()
+	signedTokenEc, err := jwt.Signed(sigEc).Claims(&customToken).Serialize()
 	if err != nil {
 		panic(err)
 	}
-	raw, _ := jwt.ParseSigned(signedTokenEc)
+	raw, _ := jwt.ParseSigned(signedTokenEc, []jose.SignatureAlgorithm{jose.ES256})
 	ke := KeyEntry{
 		Kid: "2",
 		Kty: "EC",
@@ -176,6 +180,33 @@ func SetupEC(keyCloakToken KeyCloakToken) {
 		Use: "sig",
 		X:   base64.RawURLEncoding.EncodeToString(dummyECKey.X.Bytes()),
 		Y:   base64.RawURLEncoding.EncodeToString(dummyECKey.Y.Bytes()),
+	}
+	_ = publicKeyCache.Add(raw.Headers[0].KeyID, ke, time.Minute)
+	tokens = append(tokens, signedTokenEc)
+}
+
+func SetupED(keyCloakToken KeyCloakToken) {
+	customToken := TokenWithCustomClaim{
+		KeyCloakToken: keyCloakToken,
+		Tenant:        CUSTOM_TENANT,
+	}
+
+	sigEc, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.EdDSA, Key: dummyEDPrivKey}, (&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", "3"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	signedTokenEc, err := jwt.Signed(sigEc).Claims(&customToken).Serialize()
+	if err != nil {
+		panic(err)
+	}
+	raw, _ := jwt.ParseSigned(signedTokenEc, []jose.SignatureAlgorithm{jose.EdDSA})
+	ke := KeyEntry{
+		Kid: "3",
+		Kty: "OKP",
+		Alg: "EdDSA",
+		Crv: "Ed25519",
+		Use: "sig",
+		X:   base64.RawURLEncoding.EncodeToString(dummyEDPubKey),
 	}
 	_ = publicKeyCache.Add(raw.Headers[0].KeyID, ke, time.Minute)
 	tokens = append(tokens, signedTokenEc)
@@ -388,14 +419,16 @@ func Test_Auth_with_custom_claim(t *testing.T) {
 
 func buildContext(t *testing.T, authFunc iris.Handler) *httpexpect.Expect {
 	app := iris.Default()
-	app.Logger().SetLevel("info")
-	Logger.SetLevel("info")
+	app.Logger().SetLevel("debug")
+	Logger.SetLevel("debug")
 
 	app.Get("/", func(ctx iris.Context) {
+		ctx.Application().Logger().Warnf("%#v", ctx.Values().Get("token"))
 		ctx.StatusCode(200)
 	})
 
 	app.Any("/test", authFunc, func(ctx iris.Context) {
+		ctx.Application().Logger().Warnf("%#v", ctx.Values().Get("token"))
 		ctx.StatusCode(200)
 	})
 	app.Build()

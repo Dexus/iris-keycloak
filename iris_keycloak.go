@@ -2,6 +2,7 @@ package iriskeycloak
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
 	"encoding/base64"
@@ -15,14 +16,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/kataras/golog"
 	"github.com/kataras/iris/v12"
 	"github.com/patrickmn/go-cache"
 	"golang.org/x/oauth2"
-	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 var Logger = golog.New().SetLevel("debug")
+
+var SignatureAlgorithm = []jose.SignatureAlgorithm{jose.RS256, jose.RS512, jose.ES512, jose.ES256, jose.EdDSA}
 
 // VarianceTimer controls the max runtime of Auth() and AuthChain() middleware
 var VarianceTimer = 30000 * time.Millisecond
@@ -65,7 +69,6 @@ func GetTokenContainer(token *oauth2.Token, config KeycloakConfig) (*TokenContai
 }
 
 func getPublicKey(keyId string, config KeycloakConfig) (interface{}, error) {
-
 	keyEntry, err := getPublicKeyFromCacheOrBackend(keyId, config)
 	if err != nil {
 		return nil, err
@@ -106,6 +109,11 @@ func getPublicKey(keyId string, config KeycloakConfig) (interface{}, error) {
 			X:     bigX,
 			Y:     bigY,
 		}, nil
+	} else if strings.ToUpper(keyEntry.Kty) == "OKP" {
+
+		var pKey ed25519.PublicKey
+		pKey, _ = base64.RawURLEncoding.DecodeString(keyEntry.X)
+		return pKey, nil
 	}
 
 	return nil, errors.New("no support for keys of type " + keyEntry.Kty)
@@ -155,7 +163,7 @@ func decodeToken(token *oauth2.Token, config KeycloakConfig) (*KeyCloakToken, er
 	keyCloakToken := KeyCloakToken{}
 
 	var err error
-	parsedJWT, err := jwt.ParseSigned(token.AccessToken)
+	parsedJWT, err := jwt.ParseSigned(token.AccessToken, SignatureAlgorithm)
 	if err != nil {
 		Logger.Errorf("[iris-OAuth] jwt not decodable: %s", err)
 		return nil, err

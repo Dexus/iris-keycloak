@@ -1,13 +1,13 @@
 module github.com/Dexus/iris-keycloak
 
 require (
+	github.com/go-jose/go-jose/v4 v4.0.1
 	github.com/iris-contrib/httpexpect/v2 v2.15.2
 	github.com/kataras/golog v0.1.11
 	github.com/kataras/iris/v12 v12.2.5-0.20230817092616-b30cbdbcb308
 	github.com/magiconair/properties v1.8.7
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	golang.org/x/oauth2 v0.18.0
-	gopkg.in/square/go-jose.v2 v2.6.0
 )
 
 require (
