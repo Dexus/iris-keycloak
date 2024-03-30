@@ -1,10 +1,8 @@
-package ginkeycloak
+package iriskeycloak
 
-import (
-	"github.com/gin-gonic/gin"
-)
+import "github.com/kataras/iris/v12"
 
-type AccessCheckFunction func(tc *TokenContainer, ctx *gin.Context) bool
+type AccessCheckFunction func(tc *TokenContainer, ctx iris.Context) bool
 
 type AccessTuple struct {
 	Service string
@@ -12,9 +10,9 @@ type AccessTuple struct {
 	Uid     string
 }
 
-func GroupCheck(at []AccessTuple) func(tc *TokenContainer, ctx *gin.Context) bool {
+func GroupCheck(at []AccessTuple) func(tc *TokenContainer, ctx iris.Context) bool {
 	ats := at
-	return func(tc *TokenContainer, ctx *gin.Context) bool {
+	return func(tc *TokenContainer, ctx iris.Context) bool {
 		addTokenToContext(tc, ctx)
 		for idx := range ats {
 			at := ats[idx]
@@ -31,9 +29,9 @@ func GroupCheck(at []AccessTuple) func(tc *TokenContainer, ctx *gin.Context) boo
 	}
 }
 
-func RealmCheck(allowedRoles []string) func(tc *TokenContainer, ctx *gin.Context) bool {
+func RealmCheck(allowedRoles []string) func(tc *TokenContainer, ctx iris.Context) bool {
 
-	return func(tc *TokenContainer, ctx *gin.Context) bool {
+	return func(tc *TokenContainer, ctx iris.Context) bool {
 		addTokenToContext(tc, ctx)
 		for _, allowedRole := range allowedRoles {
 			for _, role := range tc.KeyCloakToken.RealmAccess.Roles {
@@ -46,14 +44,14 @@ func RealmCheck(allowedRoles []string) func(tc *TokenContainer, ctx *gin.Context
 	}
 }
 
-func addTokenToContext(tc *TokenContainer, ctx *gin.Context) {
-	ctx.Set("token", *tc.KeyCloakToken)
-	ctx.Set("uid", tc.KeyCloakToken.PreferredUsername)
+func addTokenToContext(tc *TokenContainer, ctx iris.Context) {
+	ctx.Values().Set("token", *tc.KeyCloakToken)
+	ctx.Values().Set("uid", tc.KeyCloakToken.PreferredUsername)
 }
 
-func UidCheck(at []AccessTuple) func(tc *TokenContainer, ctx *gin.Context) bool {
+func UidCheck(at []AccessTuple) func(tc *TokenContainer, ctx iris.Context) bool {
 	ats := at
-	return func(tc *TokenContainer, ctx *gin.Context) bool {
+	return func(tc *TokenContainer, ctx iris.Context) bool {
 		addTokenToContext(tc, ctx)
 		uid := tc.KeyCloakToken.PreferredUsername
 		for idx := range ats {
@@ -66,8 +64,8 @@ func UidCheck(at []AccessTuple) func(tc *TokenContainer, ctx *gin.Context) bool 
 	}
 }
 
-func AuthCheck() func(tc *TokenContainer, ctx *gin.Context) bool {
-	return func(tc *TokenContainer, ctx *gin.Context) bool {
+func AuthCheck() func(tc *TokenContainer, ctx iris.Context) bool {
+	return func(tc *TokenContainer, ctx iris.Context) bool {
 		addTokenToContext(tc, ctx)
 		return true
 	}

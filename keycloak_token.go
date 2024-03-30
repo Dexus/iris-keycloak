@@ -1,4 +1,4 @@
-package ginkeycloak
+package iriskeycloak
 
 type KeyCloakToken struct {
 	Jti               string                 `json:"jti,omitempty"`
@@ -23,6 +23,7 @@ type KeyCloakToken struct {
 	Email             string                 `json:"email,omitempty"`
 	RealmAccess       ServiceRole            `json:"realm_access,omitempty"`
 	CustomClaims      interface{}            `json:"custom_claims,omitempty"`
+	Groups            []string               `json:"groups,omitempty"`
 }
 
 type ServiceRole struct {

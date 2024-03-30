@@ -1,4 +1,4 @@
-package ginkeycloak
+package iriskeycloak
 
 type Certs struct {
 	Keys []KeyEntry `json:"keys"`

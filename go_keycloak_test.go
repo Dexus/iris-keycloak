@@ -1,4 +1,4 @@
-package ginkeycloak
+package iriskeycloak
 
 import (
 	"crypto/ecdsa"
@@ -13,13 +13,14 @@ import (
 	"log"
 	"math/big"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
+	"github.com/iris-contrib/httpexpect/v2"
+	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/httptest"
+	"github.com/magiconair/properties/assert"
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -88,7 +89,6 @@ type TestCustomClaims struct {
 const CUSTOM_TENANT = "customTenant"
 
 func TestMain(m *testing.M) {
-	gin.SetMode(gin.TestMode)
 
 	expiredDate := time.Now().Add(time.Minute * 1)
 	token := createToken(expiredDate)
@@ -187,12 +187,10 @@ func Test_RoleAccess_invalid_role(t *testing.T) {
 		Build()
 
 	for _, token := range tokens {
-		ctx := buildContext(token)
-
-		authFunc(ctx)
-
-		assert.True(t, len(ctx.Errors) == 1)
-		assert.Equal(t, "Access to the Resource is forbidden", ctx.Errors[0].Err.Error())
+		e := buildContext(t, authFunc)
+		err := e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusForbidden).Body().Raw()
+		assert.Equal(t, "Access to the Resource is forbidden", err)
 	}
 }
 
@@ -202,12 +200,10 @@ func Test_RealmAccess_invalid_realm(t *testing.T) {
 		Build()
 
 	for _, token := range tokens {
-		ctx := buildContext(token)
-
-		authFunc(ctx)
-
-		assert.True(t, len(ctx.Errors) == 1)
-		assert.Equal(t, "Access to the Resource is forbidden", ctx.Errors[0].Err.Error())
+		e := buildContext(t, authFunc)
+		err := e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusForbidden).Body().Raw()
+		assert.Equal(t, "Access to the Resource is forbidden", err)
 	}
 }
 
@@ -217,11 +213,10 @@ func Test_UidAccess_invalid_uid(t *testing.T) {
 		Build()
 
 	for _, token := range tokens {
-		ctx := buildContext(token)
-		authFunc(ctx)
-
-		assert.True(t, len(ctx.Errors) == 1)
-		assert.Equal(t, "Access to the Resource is forbidden", ctx.Errors[0].Err.Error())
+		e := buildContext(t, authFunc)
+		err := e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusForbidden).Body().Raw()
+		assert.Equal(t, "Access to the Resource is forbidden", err)
 	}
 }
 
@@ -231,11 +226,9 @@ func Test_RoleAccess_valid_role(t *testing.T) {
 		Build()
 
 	for _, token := range tokens {
-		ctx := buildContext(token)
-
-		authFunc(ctx)
-
-		assert.True(t, len(ctx.Errors) == 0)
+		e := buildContext(t, authFunc)
+		e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusOK).Body().IsEmpty()
 	}
 }
 
@@ -245,11 +238,10 @@ func Test_RealmAccess_valid_realm(t *testing.T) {
 		Build()
 
 	for _, token := range tokens {
-		ctx := buildContext(token)
+		e := buildContext(t, authFunc)
+		e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusOK).Body().IsEmpty()
 
-		authFunc(ctx)
-
-		assert.True(t, len(ctx.Errors) == 0)
 	}
 }
 
@@ -258,32 +250,30 @@ func Test_UidAccess_valid_uid(t *testing.T) {
 		RestrictButForUid(validUsername).
 		Build()
 	for _, token := range tokens {
-		ctx := buildContext(token)
-		authFunc(ctx)
+		e := buildContext(t, authFunc)
+		e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusOK).Body().IsEmpty()
 
-		assert.True(t, len(ctx.Errors) == 0)
 	}
 }
 
 func Test_RoleAccess_auth_check(t *testing.T) {
-	authfunc := Auth(AuthCheck(), KeycloakConfig{})
+	authFunc := Auth(AuthCheck(), KeycloakConfig{})
 	for _, token := range tokens {
-		ctx := buildContext(token)
-		authfunc(ctx)
+		e := buildContext(t, authFunc)
+		e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusOK).Body().IsEmpty()
 
-		assert.True(t, len(ctx.Errors) == 0)
 	}
 }
 
 func Test_Auth_no_config(t *testing.T) {
 	authFunc := NewAccessBuilder(builderConfiig).Build()
 	for _, token := range tokens {
-		ctx := buildContext(token)
-
-		authFunc(ctx)
-
-		assert.True(t, len(ctx.Errors) == 1)
-		assert.Equal(t, "Access to the Resource is forbidden", ctx.Errors[0].Err.Error())
+		e := buildContext(t, authFunc)
+		err := e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusForbidden).Body().Raw()
+		assert.Equal(t, "Access to the Resource is forbidden", err)
 	}
 }
 
@@ -295,12 +285,10 @@ func Test_Auth_all_invalid(t *testing.T) {
 		Build()
 
 	for _, token := range tokens {
-		ctx := buildContext(token)
-
-		authFunc(ctx)
-
-		assert.True(t, len(ctx.Errors) == 1)
-		assert.Equal(t, "Access to the Resource is forbidden", ctx.Errors[0].Err.Error())
+		e := buildContext(t, authFunc)
+		err := e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusForbidden).Body().Raw()
+		assert.Equal(t, "Access to the Resource is forbidden", err)
 	}
 }
 
@@ -312,11 +300,9 @@ func Test_Auth_all_invalid_but_uid(t *testing.T) {
 		Build()
 
 	for _, token := range tokens {
-		ctx := buildContext(token)
-
-		authFunc(ctx)
-
-		assert.True(t, len(ctx.Errors) == 0)
+		e := buildContext(t, authFunc)
+		e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusOK).Body().IsEmpty()
 	}
 }
 
@@ -327,11 +313,9 @@ func Test_Auth_all_invalid_but_role(t *testing.T) {
 		RestrictButForRealm(invalidRealm).
 		Build()
 	for _, token := range tokens {
-		ctx := buildContext(token)
-
-		authFunc(ctx)
-
-		assert.True(t, len(ctx.Errors) == 0)
+		e := buildContext(t, authFunc)
+		e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusOK).Body().IsEmpty()
 	}
 }
 
@@ -342,11 +326,9 @@ func Test_Auth_all_invalid_but_realm(t *testing.T) {
 		RestrictButForRealm(validRealmRole).
 		Build()
 	for _, token := range tokens {
-		ctx := buildContext(token)
-
-		authFunc(ctx)
-
-		assert.True(t, len(ctx.Errors) == 0)
+		e := buildContext(t, authFunc)
+		e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusOK).Body().IsEmpty()
 	}
 }
 
@@ -358,15 +340,15 @@ func Test_Auth_all_valid(t *testing.T) {
 		Build()
 
 	for _, token := range tokens {
-		ctx := buildContext(token)
-		authFunc(ctx)
-		assert.True(t, len(ctx.Errors) == 0)
+		e := buildContext(t, authFunc)
+		e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusOK).Body().IsEmpty()
 	}
 }
 
-func customCheck() func(tc *TokenContainer, ctx *gin.Context) bool {
+func customCheck() func(tc *TokenContainer, ctx iris.Context) bool {
 	authCheck := AuthCheck() // default auth check
-	return func(tc *TokenContainer, ctx *gin.Context) bool {
+	return func(tc *TokenContainer, ctx iris.Context) bool {
 		if authCheck(tc, ctx) {
 			var tenant string
 			if tc.KeyCloakToken.CustomClaims != nil {
@@ -375,7 +357,7 @@ func customCheck() func(tc *TokenContainer, ctx *gin.Context) bool {
 			}
 			if CUSTOM_TENANT != tenant {
 				errorMessage := fmt.Sprintf("Invalid tenant '%s'", tenant)
-				ctx.AbortWithError(http.StatusUnauthorized, errors.New(errorMessage))
+				ctx.StopWithError(http.StatusUnauthorized, errors.New(errorMessage))
 			}
 			return true
 		}
@@ -396,19 +378,25 @@ func Test_Auth_with_custom_claim(t *testing.T) {
 	})
 
 	for _, token := range tokens {
-		ctx := buildContext(token)
-		authFunc(ctx)
-		assert.True(t, len(ctx.Errors) == 0)
+		e := buildContext(t, authFunc)
+		e.GET("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusOK).Body().IsEmpty()
+		e.POST("/test").WithHeader("Authorization", "Bearer "+token).Expect().
+			Status(httptest.StatusOK).Body().IsEmpty()
 	}
 }
 
-func buildContext(token string) *gin.Context {
-	resp := httptest.NewRecorder()
-	ctx, r := gin.CreateTestContext(resp)
-	r.GET("", func(c *gin.Context) {
-		c.Status(200)
+func buildContext(t *testing.T, authFunc iris.Handler) *httpexpect.Expect {
+	app := iris.New()
+	app.Logger().SetOutput(os.Stdout)
+	app.Get("/", func(ctx iris.Context) {
+		ctx.StatusCode(200)
 	})
-	ctx.Request, _ = http.NewRequest(http.MethodGet, "/test", nil)
-	ctx.Request.Header.Set("Authorization", "Bearer "+token)
-	return ctx
+
+	app.Any("/test", authFunc, func(ctx iris.Context) {
+		ctx.StatusCode(200)
+	})
+	resp := httptest.New(t, app)
+
+	return resp
 }

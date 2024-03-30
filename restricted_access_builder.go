@@ -1,8 +1,8 @@
-package ginkeycloak
+package iriskeycloak
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/golang/glog"
+	"github.com/kataras/golog"
+	"github.com/kataras/iris/v12"
 )
 
 type BuilderConfig struct {
@@ -17,7 +17,7 @@ type RestrictedAccessBuilder interface {
 	RestrictButForRole(role string) RestrictedAccessBuilder
 	RestrictButForUid(uid string) RestrictedAccessBuilder
 	RestrictButForRealm(realmName string) RestrictedAccessBuilder
-	Build() gin.HandlerFunc
+	Build() iris.Handler
 }
 
 type restrictedAccessBuilderImpl struct {
@@ -47,10 +47,10 @@ func (builder restrictedAccessBuilderImpl) RestrictButForRealm(realmName string)
 	return builder
 }
 
-func (builder restrictedAccessBuilderImpl) Build() gin.HandlerFunc {
+func (builder restrictedAccessBuilderImpl) Build() iris.Handler {
 	if builder.config.DisableSecurityCheck {
-		glog.Warningf("[ginkeycloak] access check is disabled")
-		return func(ctx *gin.Context) {}
+		golog.Default.Warningf("[iriskeycloak] access check is disabled")
+		return func(ctx iris.Context) {}
 	}
 	return Auth(builder.checkIfOneConditionMatches(), builder.keycloakConfig())
 }
@@ -64,7 +64,7 @@ func (builder restrictedAccessBuilderImpl) keycloakConfig() KeycloakConfig {
 }
 
 func (builder restrictedAccessBuilderImpl) checkIfOneConditionMatches() AccessCheckFunction {
-	return func(tc *TokenContainer, ctx *gin.Context) bool {
+	return func(tc *TokenContainer, ctx iris.Context) bool {
 		checkRoles := GroupCheck(builder.allowedRoles)(tc, ctx)
 		checkUids := UidCheck(builder.allowedUids)(tc, ctx)
 		checkRealm := RealmCheck(builder.allowedRealms)(tc, ctx)

@@ -1,9 +1,10 @@
-# Gin-Keycloak
+# Iris-Keycloak
 
 
-Gin-Keycloak is specially made for [Gin Framework](https://github.com/gin-gonic/gin)
+Iris-Keycloak is specially made for [Iris Framework](https://github.com/kataras/iris)
 users who also want to use Keycoak.
-This Project was inspired by zalando's gin-oauth
+This Project was inspired by zalando's Gin-OAuth and forked from https://github.com/tbaehler/gin-keycloak
+
 
 ## Project Context and Features
 
@@ -13,10 +14,10 @@ comparisons of different frameworks are still somewhat rare. Meantime,
 how to handle dependencies and structure projects are big topics in
 the Go community. We've liked using Gin for its speed,
 accessibility, and usefulness in developing microservice
-architectures. In creating Gin-OAuth2, we wanted to take fuller
+architectures. In creating iris-OAuth2, we wanted to take fuller
 advantage of Gin's capabilities and help other devs do likewise.
 
-Gin-Keycloak is expressive, flexible, and very easy to use. It allows you to:
+Iris-Keycloak is expressive, flexible, and very easy to use. It allows you to:
 - do OAuth2 authorization based on the JWT Token
 - create router groups to place Keycloak authorization on top, using HTTP verbs and passing them
 - more easily decouple services by promoting a "say what to do, not how to do it" approach
@@ -25,21 +26,20 @@ Gin-Keycloak is expressive, flexible, and very easy to use. It allows you to:
 
 ## Requirements
 
-- [Gin](https://github.com/gin-gonic/gin)
+- [Iris](https://github.com/kataras/iris)
 - An Keycloak Token provider
 
-Gin-Keycloak uses the following [Go](https://golang.org/) packages as
+Iris-Keycloak uses the following [Go](https://golang.org/) packages as
 dependencies:
 
-* [Gin](https://github.com/gin-gonic/gin)
-* [glog](https://github.com/golang/glog)
-* [gin-glog](https://github.com/szuecs/gin-glog)
+* [Iris](https://github.com/kataras/iris)
+* [golog](https://github.com/kataras/golog)
 
 ## Installation
 
 Assuming you've installed Go and Gin, run this:
 
-    go get github.com/tbaehler/gin-keycloak
+    go get github.com/Dexus/iris-keycloak
 
 ## Usage
 
@@ -47,16 +47,15 @@ Assuming you've installed Go and Gin, run this:
 
 With this function you just check if user is authenticated. Therefore there is no need for AccessTuple unlike next two access types.
 
-Gin middlewares you use:
+Iris middlewares you use:
 
-    router := gin.New()
-    router.Use(ginglog.Logger(3 * time.Second))
-    router.Use(ginkeycloak.RequestLogger([]string{"uid"}, "data"))
-    router.Use(gin.Recovery())
+    app := iris.New()
+    app.Use(iriskeycloak.RequestLogger([]string{"uid"}, "data"))
+
 
 A Keycloakconfig. You can either use URL and Realm or define a fullpath that point to protocol/openid-connect/certs
 
-    var sbbEndpoint = ginkeycloak.KeycloakConfig{
+    var sbbEndpoint = iriskeycloak.KeycloakConfig{
         Url:  "https://keycloack.domain.ch/",
         Realm: "Your Realm",
         FullCertsPath: nil
@@ -66,37 +65,37 @@ Lastly, define which type of access you grant to the defined
 team. We'll use a router group again:
 
 
-    privateGroup := router.Group("/api/privateGroup")
-    privateGroup.Use(ginkeycloak.Auth(ginkeycloak.AuthCheck(), keycloakconfig))
-    privateGroup.GET("/", func(c *gin.Context) {
+    privateGroup := app.Party("/api/privateGroup")
+    privateGroup.Use(iriskeycloak.Auth(iriskeycloak.AuthCheck(), keycloakconfig))
+    privateGroup.Get("/", func(c iris.Context) {
     	....
     })
 
 Once again, you can use curl to test:
 
         curl -H "Authorization: Bearer $TOKEN" http://localhost:8081/api/privateGroup/
-        {"message":"Hello from private to sszuecs member of teapot"}
+        {"message":"Hello from private to Dexus member of teapot"}
 
 
 ### Uid-Based Access
 
 Restrict all access but for a few users
 
-    config := ginkeycloak.BuilderConfig{
+    config := iriskeycloak.BuilderConfig{
               		service:              <yourServicename>,
               		url:                  "<your token url>",
               		realm:                "<your realm to get the public keys>",
               }
 
-    router := gin.New()
-    privateUser := router.Group("/api/privateUser")
+    app := iris.New()
+    privateUser := app.Party("/api/privateUser")
 
-    privateUser.Use(ginkeycloak.NewAccessBuilder(config).
+    privateUser.Use(iriskeycloak.NewAccessBuilder(config).
         RestrictButForUid("domain\user1").
         RestrictButForUid("domain\user2").
         Build())
 
-    privateUser.GET("/", func(c *gin.Context) {
+    privateUser.Get("/", func(c iris.Context) {
     	....
     })
 
@@ -105,28 +104,28 @@ Restrict all access but for a few users
 To test, you can use curl:
 
         curl -H "Authorization: Bearer $TOKEN" http://localhost:8081/api/privateUser/
-        {"message":"Hello from private for users to Sandor Szücs"}
+        {"message":"Hello from private for users 1+2"}
 
 ### Role-Based Access
 
 Restrict all access but for the given roles
 
 
-    config := ginkeycloak.BuilderConfig{
+    config := iriskeycloak.BuilderConfig{
                   		service:              <yourServicename>,
                   		url:                  "<your token url>",
                   		realm:                "<your realm to get the public keys>",
                   }
 
-    router := gin.New()
-    privateUser := router.Group("/api/privateUser")
+    app := iris.New()
+    privateUser := app.Party("/api/privateUser")
 
-    privateUser.Use(ginkeycloak.NewAccessBuilder(config).
+    privateUser.Use(iriskeycloak.NewAccessBuilder(config).
         RestrictButForRole("role1").
         RestrictButForRole("role2").
         Build())
 
-    privateUser.GET("/", func(c *gin.Context) {
+    privateUser.Get("/", func(c iris.Context) {
     	....
     })
 
@@ -140,20 +139,20 @@ Once again, you can use curl to test:
 Realm Based Access is also possible and straightforward:
 
 
-    config := ginkeycloak.BuilderConfig{
+    config := iriskeycloak.BuilderConfig{
                       		service:              <yourServicename>,
                       		url:                  "<your token url>",
                       		realm:                "<your realm to get the public keys>",
                       }
 
-    router := gin.New()
-    privateUser := router.Group("/api/privateUser")
+    app := iris.New()
+    privateUser := app.Party("/api/privateUser")
 
-    privateUser.Use(ginkeycloak.NewAccessBuilder(config).
+    privateUser.Use(iriskeycloak.NewAccessBuilder(config).
         RestrictButForRealm("realmRole").
         Build())
 
-    privateUser.GET("/", func(c *gin.Context) {
+    privateUser.Get("/", func(c iris.Context) {
     	....
     })
 
@@ -168,14 +167,14 @@ Here a simple example:
         Tenant string `json:"https://your-realm/tenant,omitempty"`
     }
 
-    func MyCustomClaimsMapper(jsonWebToken *jwt.JSONWebToken, keyCloakToken *ginkeycloak.KeyCloakToken) error {
+    func MyCustomClaimsMapper(jsonWebToken *jwt.JSONWebToken, keyCloakToken *iriskeycloak.KeyCloakToken) error {
         claims := MyCustomClaims{}
         jsonWebToken.UnsafeClaimsWithoutVerification(&claims)
         keyCloakToken.CustomClaims = claims
         return nil
     }
 
-    var keycloakconfig = ginkeycloak.KeycloakConfig{
+    var keycloakconfig = iriskeycloak.KeycloakConfig{
         Url:                "https://keycloack.domain.ch/"
         Realm:              "your-realm",
         FullCertsPath:      nil,
@@ -189,8 +188,8 @@ Currently, are only "EC" (which uses keycloak by default) and "RS" supported
 
 #### How to get the keycloak claims e.g. sub, mail, name?
 
-        ginToken,_ := context.Get("token")
-        token := ginToken.(ginkeycloak.KeyCloakToken)
+        irisToken,_ := context.Get("token")
+        token := irisToken.(iriskeycloak.KeyCloakToken)
 
 
 ## Contributors
@@ -198,6 +197,7 @@ Currently, are only "EC" (which uses keycloak by default) and "RS" supported
 Thanks to:
 
 - Zalando Team for their initial work
+- @thaehler for his https://github.com/tbaehler/gin-keycloak
 
 ## License
 
