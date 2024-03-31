@@ -266,7 +266,8 @@ func authChain(config KeycloakConfig, accessCheckFunctions ...AccessCheckFunctio
 				varianceControl <- false
 				return
 			}
-			ctx.Values().Set("KeyCloakToken", tokenContainer.KeyCloakToken)
+			ctx.Values().Set("KeyCloakToken", *tokenContainer.KeyCloakToken)
+			ctx.Values().Set("tokenContainer", *tokenContainer)
 			for _, fn := range accessCheckFunctions {
 				if fn(tokenContainer, ctx) {
 					varianceControl <- true
