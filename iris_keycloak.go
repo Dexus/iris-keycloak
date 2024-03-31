@@ -288,8 +288,8 @@ func authChain(config KeycloakConfig, accessCheckFunctions ...AccessCheckFunctio
 			Logger.Infof("[iris-OAuth] %12v %s overtime", time.Since(t), ctx.Request().URL.Path)
 			return
 		}
-
 		Logger.Infof("[iris-OAuth] %12v %s access allowed", time.Since(t), ctx.Request().URL.Path)
+		ctx.Next()
 	}
 }
 
