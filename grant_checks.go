@@ -46,6 +46,7 @@ func RealmCheck(allowedRoles []string) func(tc *TokenContainer, ctx iris.Context
 
 func addTokenToContext(tc *TokenContainer, ctx iris.Context) {
 	ctx.Values().Set("token", *tc.KeyCloakToken)
+	ctx.Values().Set("oauth2token", *tc.Token)
 	ctx.Values().Set("uid", tc.KeyCloakToken.PreferredUsername)
 }
 
